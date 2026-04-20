@@ -331,3 +331,58 @@ func TestGeminiTextGenerationHandlerUsesEstimatedPromptTokensWhenUsagePromptMiss
 	require.Equal(t, 100, usage.CompletionTokens)
 	require.Equal(t, 110, usage.TotalTokens)
 }
+
+func TestNormalizeRequiredArray(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		expected map[string]interface{}
+	}{
+		{
+			name:     "nil schema",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "required is null",
+			input:    map[string]interface{}{"required": nil, "type": "object"},
+			expected: map[string]interface{}{"required": []interface{}{}, "type": "object"},
+		},
+		{
+			name:     "required is array",
+			input:    map[string]interface{}{"required": []string{"name"}, "type": "object"},
+			expected: map[string]interface{}{"required": []string{"name"}, "type": "object"},
+		},
+		{
+			name:     "required not present",
+			input:    map[string]interface{}{"type": "object"},
+			expected: map[string]interface{}{"type": "object"},
+		},
+		{
+			name: "nested schema with null required",
+			input: map[string]interface{}{
+				"type":       "object",
+				"required":   nil,
+				"properties": map[string]interface{}{"nested": map[string]interface{}{"required": nil}},
+			},
+			expected: map[string]interface{}{
+				"type":       "object",
+				"required":   []interface{}{},
+				"properties": map[string]interface{}{"nested": map[string]interface{}{"required": []interface{}{}}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			normalizeRequiredArray(tt.input)
+			if tt.expected == nil {
+				require.Nil(t, tt.input)
+				return
+			}
+			require.Equal(t, tt.expected, tt.input)
+		})
+	}
+}
