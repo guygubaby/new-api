@@ -58,7 +58,12 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 				claudeTool.InputSchema["type"] = params["type"].(string)
 			}
 			claudeTool.InputSchema["properties"] = params["properties"]
-			claudeTool.InputSchema["required"] = params["required"]
+			// Normalize required field: convert null to empty array
+			if params["required"] == nil {
+				claudeTool.InputSchema["required"] = []any{}
+			} else {
+				claudeTool.InputSchema["required"] = params["required"]
+			}
 			for s, a := range params {
 				if s == "type" || s == "properties" || s == "required" {
 					continue

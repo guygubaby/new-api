@@ -753,6 +753,9 @@ func cleanFunctionParametersWithDepth(params interface{}, depth int) interface{}
 
 		normalizeGeminiSchemaTypeAndNullable(cleanedMap)
 
+		// Normalize required field: convert null to empty array
+		normalizeRequiredArray(cleanedMap)
+
 		// Clean properties
 		if props, ok := cleanedMap["properties"].(map[string]interface{}); ok && props != nil {
 			cleanedProps := make(map[string]interface{})
@@ -806,6 +809,10 @@ func cleanFunctionParametersShallow(params interface{}) interface{} {
 			}
 		}
 		normalizeGeminiSchemaTypeAndNullable(cleanedMap)
+		// Normalize required field: convert null to empty array
+		if required, exists := cleanedMap["required"]; exists && required == nil {
+			cleanedMap["required"] = []interface{}{}
+		}
 		// Stop recursion and avoid retaining huge nested structures.
 		delete(cleanedMap, "properties")
 		delete(cleanedMap, "items")
@@ -877,6 +884,33 @@ func normalizeGeminiSchemaTypeAndNullable(schema map[string]interface{}) {
 			schema["type"] = chosen
 		} else {
 			delete(schema, "type")
+		}
+	}
+}
+
+// normalizeRequiredArray normalizes the "required" field in JSON Schema.
+// Gemini rejects null values for "required", so we convert null to an empty array.
+func normalizeRequiredArray(schema map[string]interface{}) {
+	if schema == nil {
+		return
+	}
+
+	// Handle "required" field: convert null to empty array
+	if required, exists := schema["required"]; exists && required == nil {
+		schema["required"] = []interface{}{}
+	}
+
+	// Recursively normalize nested schemas
+	for _, value := range schema {
+		switch v := value.(type) {
+		case map[string]interface{}:
+			normalizeRequiredArray(v)
+		case []interface{}:
+			for _, item := range v {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					normalizeRequiredArray(itemMap)
+				}
+			}
 		}
 	}
 }
